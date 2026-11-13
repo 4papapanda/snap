@@ -1,0 +1,49 @@
+name: Repo Snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *"
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+  
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl python3
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python snap.py
+
+      - name: Rewrite history (single commit)
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          git checkout --orphan latest
+          git add .
+          git commit -m "snapshot $(date -u +%F)"
+
+          git branch -D main || true
+          git branch -m main
+
+          git push -f origin main
